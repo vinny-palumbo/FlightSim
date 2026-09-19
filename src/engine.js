@@ -4,7 +4,7 @@ import { loadAircraft, disposeAircraft } from './aircraft';
 import { createAircraftEnvironment, improveAircraftMaterials } from './aircraft-lighting';
 import * as T from 'three';
 import { createPlane } from './world';
-import { initialState,step } from './physics';
+import { initialState,step,setAcrobatic } from './physics';
 
 export class FlightEngine{
  constructor(host,onUpdate,onError){
@@ -15,7 +15,7 @@ export class FlightEngine{
 
   this.camera=new T.PerspectiveCamera(55,1,1,130000);this.renderer=new T.WebGLRenderer({antialias:true,alpha:true});this.renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio,1.75),2));this.renderer.setClearColor(0,0);this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.0;host.appendChild(this.renderer.domElement);this.aircraftEnvironment=createAircraftEnvironment(this.renderer);
   this.resize=()=>{const w=host.clientWidth,h=host.clientHeight;this.camera.aspect=w/h;this.camera.updateProjectionMatrix();this.renderer.setSize(w,h);};this.resize();this.observer=new ResizeObserver(this.resize);this.observer.observe(host);
-  this.keydown=e=>{if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName))return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();this.keys.add(e.code);if(e.repeat)return;if(e.code==='Space')this.toggle();if(e.code==='KeyC')this.cycleCamera();if(e.code==='KeyR')this.reset();};
+  this.keydown=e=>{if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName))return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();this.keys.add(e.code);if(e.repeat)return;if(e.code==='Space')this.toggle();if(e.code==='KeyC')this.cycleCamera();if(e.code==='KeyR')this.reset();if(e.code==='KeyF')this.toggleAcrobatic();};
   this.keyup=e=>this.keys.delete(e.code);this.blur=()=>{this.keys.clear();this.running=false;this.emit();};window.addEventListener('keydown',this.keydown);window.addEventListener('keyup',this.keyup);window.addEventListener('blur',this.blur);this.last=performance.now();this.frame(this.last);this.loadCessna();this.unregisterFlightTools=registerFlightTools(this);
  }
  async loadCessna(){
@@ -35,12 +35,13 @@ export class FlightEngine{
  emit(){this.onUpdate({...this.state,aircraftStatus:this.aircraftStatus,running:this.running,cameraMode:this.cameraMode,mode:this.mode});}
  toggle(){if(!this.google)return;if(this.state.crashed)this.reset();this.running=!this.running;this.emit();}
  cycleCamera(){this.cameraMode=(this.cameraMode+1)%3;this.emit();}
- reset(){this.state=initialState(this.spawnAltitude);this.running=false;this.keys.clear();this.emit();}
+ toggleAcrobatic(){setAcrobatic(this.state,!this.state.acrobatic);this.keys.clear();this.emit();}
+ reset(){const acrobatic=!!this.state.acrobatic;this.state=initialState(this.spawnAltitude);setAcrobatic(this.state,acrobatic);this.running=false;this.keys.clear();this.emit();}
  input(){const k=this.keys;return {pitch:Number(k.has('ArrowDown'))-Number(k.has('ArrowUp')),roll:Number(k.has('ArrowRight'))-Number(k.has('ArrowLeft')),yaw:Number(k.has('KeyD'))-Number(k.has('KeyA')),throttle:Number(k.has('KeyW'))-Number(k.has('KeyS'))};}
  frame=(now)=>{
   if(this.disposed)return;this.raf=requestAnimationFrame(this.frame);const dt=Math.min((now-this.last)/1000,.05);this.last=now;const s=this.state;
   if(this.running&&this.google){step(s,this.input(),dt,()=>-10000);if(s.crashed)this.running=false;}
-  this.plane.position.set(s.x,s.y,s.z);this.plane.rotation.set(s.pitch,-s.heading,-s.roll,'YXZ');this.plane.userData.prop.rotation.z+=this.running?dt*(30+s.throttle*50):0;
+  this.plane.position.set(s.x,s.y,s.z);if(s.acrobatic)this.plane.quaternion.copy(s.attitude);else this.plane.rotation.set(s.pitch,-s.heading,-s.roll,'YXZ');this.plane.userData.prop.rotation.z+=this.running?dt*(30+s.throttle*50):0;
 
   updateFlightCamera(this.camera,this.plane.position,s,this.cameraMode);this.plane.visible=!!this.google&&this.cameraMode!==1;
   if(this.google)this.syncGoogle();this.renderer.render(this.scene,this.camera);
