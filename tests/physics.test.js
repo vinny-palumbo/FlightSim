@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { initialState,step,passCheckpoint,checkpoints } from '../src/physics.js';
+const advance=(s,input,seconds)=>{for(let i=0;i<seconds*60;i++)step(s,input,1/60);return s;};
+test('level cruise advances north without losing altitude',()=>{const s=advance(initialState(),{},10);assert.ok(s.z<1200);assert.equal(s.y,730);assert.ok(!s.crashed);});
+test('banking produces a coordinated turn',()=>{const s=advance(initialState(),{roll:1},5);assert.ok(s.heading>0);assert.ok(s.x>0);});
+test('pitch up climbs and trades airspeed for height',()=>{const climb=advance(initialState(),{pitch:1},3),level=advance(initialState(),{},3);assert.ok(climb.y>level.y);assert.ok(climb.speed<level.speed);});
+test('throttle is bounded and idle eventually stalls',()=>{const s=advance(initialState(),{throttle:-1},120);assert.equal(s.throttle,0);assert.ok(s.stall||s.crashed);const high=advance(initialState(),{throttle:1},10);assert.equal(high.throttle,1);});
+test('terrain contact stops the flight',()=>{const s=initialState(3);step(s,{},1/60);assert.ok(s.crashed);const z=s.z;step(s,{},1/60);assert.equal(s.z,z);});
+test('checkpoints must be reached in order',()=>{const s=initialState();Object.assign(s,checkpoints[1]);assert.equal(passCheckpoint(s),false);Object.assign(s,checkpoints[0]);assert.equal(passCheckpoint(s),true);assert.equal(s.checkpoint,1);assert.equal(passCheckpoint(s),false);});
