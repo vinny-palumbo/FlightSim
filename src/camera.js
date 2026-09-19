@@ -11,10 +11,15 @@ export function updateFlightCamera(camera, position, state, mode) {
       camera.up.copy(up);
       camera.position.copy(position).addScaledVector(direction,3).addScaledVector(up,1.4);
       camera.lookAt(camera.position.clone().add(direction));
+    }else if(mode===0){
+      // Attach the chase offset and up vector to the aircraft through every attitude.
+      const distance=Math.max(29,24/camera.aspect);
+      const up=new Vector3(0,1,0).applyQuaternion(state.attitude);
+      camera.up.copy(up);
+      camera.position.copy(position).addScaledVector(direction,-distance).addScaledVector(up,distance*.3);
+      camera.lookAt(position);
     }else{
-      // Stable horizon and centered aircraft throughout loops and rolls.
-      const distance=Math.max(29,24/camera.aspect), angle=state.acroCameraHeading||0;
-      camera.position.copy(position).add(mode===2?new Vector3(45,25,55):new Vector3(-Math.sin(angle)*distance,distance*.3,Math.cos(angle)*distance));
+      camera.position.copy(position).add(new Vector3(45,25,55));
       camera.lookAt(position);
     }
     return;
