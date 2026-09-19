@@ -36,7 +36,7 @@ export class FlightEngine{
  toggle(){if(this.state.crashed)this.reset();this.running=!this.running;this.emit();}
  cycleCamera(){this.cameraMode=(this.cameraMode+1)%3;this.emit();}
  reset(){this.state=initialState(this.mode==='google'?1100:730);this.running=false;this.keys.clear();this.emit();}
- input(){const k=this.keys;return {pitch:Number(k.has('ArrowDown')||k.has('KeyS'))-Number(k.has('ArrowUp')||k.has('KeyW')),roll:Number(k.has('ArrowRight')||k.has('KeyD'))-Number(k.has('ArrowLeft')||k.has('KeyA')),yaw:Number(k.has('KeyE'))-Number(k.has('KeyQ')),throttle:Number(k.has('ShiftLeft')||k.has('ShiftRight'))-Number(k.has('ControlLeft')||k.has('ControlRight'))};}
+ input(){const k=this.keys;return {pitch:Number(k.has('ArrowDown'))-Number(k.has('ArrowUp')),roll:Number(k.has('ArrowRight'))-Number(k.has('ArrowLeft')),yaw:Number(k.has('KeyD'))-Number(k.has('KeyA')),throttle:Number(k.has('KeyW'))-Number(k.has('KeyS'))};}
  frame=(now)=>{
   if(this.disposed)return;this.raf=requestAnimationFrame(this.frame);const dt=Math.min((now-this.last)/1000,.05);this.last=now;const s=this.state;
   if(this.running){step(s,this.input(),dt,this.mode==='practice'?terrainHeight:()=>-10000);if(this.mode==='practice')passCheckpoint(s);if(s.crashed)this.running=false;}

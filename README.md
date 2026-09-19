@@ -15,7 +15,7 @@ Open http://localhost:5173. For a production build, run `npm run build`; serve `
 
 ## Fly
 
-Click **Start flight**. Arrow keys or WASD control pitch and bank (Down/S pulls up); Q/E operate the rudder. Shift increases throttle; Ctrl decreases it. The throttle slider also works. Space pauses, C cycles chase/pilot/orbit views, R resets. Touch controls appear on narrow screens. Switching windows pauses the flight.
+Press **Space** to start flight. Arrow keys control pitch and bank (Down pulls up); A/D operate the rudder left/right. W increases throttle; S decreases it. The throttle slider also works. Space pauses, C cycles chase/pilot/orbit views, R resets. Touch controls appear on narrow screens. Switching windows pauses the flight.
 
 The practice course has three rings, visited in order. Altitude is feet above the practice sea level; airspeed is knots. Flight starts airborne. Simplified acceleration, pitch/speed coupling, coordinated turns, stall sink and practice-ground collision are implemented. This is an arcade exploration simulator, not a training-grade aerodynamic model. There is no takeoff/landing or multiplayer system.
 
