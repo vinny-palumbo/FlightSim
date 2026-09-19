@@ -55,3 +55,7 @@ The default aircraft is “Plane” by osmosikum, supplied as a GLB with 2K text
 Aircraft rendering uses an outdoor reflection environment, up to 16x anisotropic texture filtering, and 1.75–2x rendering resolution. Original texture files and aircraft geometry remain intact. The higher rendering resolution increases GPU work.
 
 Google tiles target a screen-space error of 6 (previously 12), keep requests active while moving, and remove the foveated pause delay. Horizon detail relaxation is reduced to 8. The Google helper’s default in-memory cache is retained. This improves the requested detail during flight but can increase network and GPU work; actual streaming speed depends on the connection and device.
+
+## Scenery-first startup
+
+The app opens Choose your scenery automatically and requires a Google connection before flight. Practice islands and their checkpoint UI are removed. All original destinations remain, plus Formia, Tokyo, Los Angeles, Toronto, Vancouver, Austin, Miami, Colorado (Denver), and Grand Canyon. Denver starts at 2,800 meters MSL and Grand Canyon at 3,000 meters MSL; resetting preserves the selected departure altitude.
