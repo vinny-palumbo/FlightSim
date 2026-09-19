@@ -3,14 +3,18 @@ import assert from 'node:assert/strict';
 import {PerspectiveCamera, Vector3} from 'three';
 import {initialState, setAcrobatic, step} from '../src/physics.js';
 import {updateFlightCamera} from '../src/camera.js';
-for(const [control,rate] of [['pitch',1.25],['roll',2.2]]){
- test(`Acrobatics completes a full ${control} revolution`,()=>{
-  const s=initialState(3000);setAcrobatic(s,true);
-  const n=600,dt=2*Math.PI/rate/n;
-  for(let i=0;i<n;i++)step(s,{[control]:1},dt);
-  assert.ok(Math.abs(s.attitude.w)>0.99999);
-  assert.ok(s.speed>=35&&!s.stall);
-  assert.ok([s.x,s.y,s.z,s.heading].every(Number.isFinite));
+for(const control of ['pitch','roll']){
+ test(`Acrobatics can complete a full ${control} revolution with momentum`,()=>{
+  const s=initialState(3000);s.speed=85;s.velocity.set(0,0,-85);s.throttle=1;setAcrobatic(s,true);
+  let rotation=0,frames=0;
+  while(rotation<Math.PI*2&&frames++<2400){
+   step(s,{[control]:1},1/120,()=>-10000);
+   rotation+=s[`${control}Rate`]/120;
+  }
+  assert.ok(rotation>=Math.PI*2,'full revolution completed');
+  assert.ok(Math.abs(s.attitude.w)>.999);
+  assert.ok([s.x,s.y,s.z,s.heading,s.speed].every(Number.isFinite));
+  assert.ok(s.speed>0);
  });
 }
 test('Acrobatic chase camera keeps the aircraft centered during combined maneuvers',()=>{

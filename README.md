@@ -59,3 +59,9 @@ Google tiles target a screen-space error of 6 (previously 12), keep requests act
 ## Scenery-first startup
 
 The app opens Choose your scenery automatically and requires a Google connection before flight. Practice islands and their checkpoint UI are removed. All original destinations remain, plus Formia, Tokyo, Los Angeles, Toronto, Vancouver, Austin, Miami, Colorado (Denver), and Grand Canyon. Denver starts at 2,800 meters MSL and Grand Canyon at 3,000 meters MSL; resetting preserves the selected departure altitude.
+
+## Flight dynamics
+
+Flight uses velocity-based lift, drag, thrust and gravity with 120 Hz maximum integration steps. Control rates and engine power spool smoothly. Low airspeed reduces control authority; excessive angle of attack loses lift and creates a recoverable stall. Normal flight retains coordinated-turn and self-leveling assistance. Acrobatic mode uses body-local quaternion rotations and a broader lift envelope with more engine power, while retaining momentum and speed/height tradeoffs. It is a tuned game model, not a validated Cessna flight model. Chase camera behavior is preserved in both modes.
+
+Regression coverage includes cruise, climb/dive energy tradeoffs, gliding, stall recovery, control response, momentum on mode changes, frame-rate consistency, full rotations, and aircraft framing.
