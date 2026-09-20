@@ -4,12 +4,11 @@ import { loadAircraft, disposeAircraft } from './aircraft';
 import { createAircraftEnvironment, improveAircraftMaterials } from './aircraft-lighting';
 import * as T from 'three';
 import { createPlane } from './world';
-import { initialState } from './flight-state';
-import { JSBSimFlight } from './jsbsim-flight';
+import { FlightPhysics } from './flight-physics';
 
 export class FlightEngine{
  constructor(host,onUpdate,onError){
-  this.host=host;this.onUpdate=onUpdate;this.onError=onError;this.state=initialState();this.keys=new Set();this.running=false;this.cameraMode=0;this.mode='setup';this.spawnAltitude=1100;this.aircraftStatus='loading';this.physicsStatus='loading';this.departure={lat:37.795,lon:-122.46,altitude:1100};
+  this.host=host;this.onUpdate=onUpdate;this.onError=onError;this.flight=new FlightPhysics();this.state=this.flight.state;this.keys=new Set();this.running=false;this.cameraMode=0;this.mode='setup';this.spawnAltitude=1100;this.aircraftStatus='loading';this.physicsStatus='ready';this.departure={lat:37.795,lon:-122.46,altitude:1100};
   this.scene=new T.Scene();this.scene.background=new T.Color(0x88b8d5);this.scene.fog=new T.FogExp2(0x96bdcc,.000042);
   this.scene.add(new T.HemisphereLight(0xc7e7ff,0x637257,1.3));const sun=new T.DirectionalLight(0xffeed7,2.5);sun.position.set(-2000,5000,1000);this.scene.add(sun);
   this.plane=createPlane();this.scene.add(this.plane);
@@ -17,14 +16,14 @@ export class FlightEngine{
   this.camera=new T.PerspectiveCamera(55,1,1,130000);this.renderer=new T.WebGLRenderer({antialias:true,alpha:true});this.renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio,1.75),2));this.renderer.setClearColor(0,0);this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.0;host.appendChild(this.renderer.domElement);this.aircraftEnvironment=createAircraftEnvironment(this.renderer);
   this.resize=()=>{const w=host.clientWidth,h=host.clientHeight;this.camera.aspect=w/h;this.camera.updateProjectionMatrix();this.renderer.setSize(w,h);};this.resize();this.observer=new ResizeObserver(this.resize);this.observer.observe(host);
   this.keydown=e=>{if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName))return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();this.keys.add(e.code);if(e.repeat)return;if(e.code==='Space')this.toggle();if(e.code==='KeyC')this.cycleCamera();if(e.code==='KeyR')this.reset();if(e.code==='KeyF')this.toggleAcrobatic();};
-  this.keyup=e=>this.keys.delete(e.code);this.blur=()=>{this.keys.clear();this.running=false;this.emit();};window.addEventListener('keydown',this.keydown);window.addEventListener('keyup',this.keyup);window.addEventListener('blur',this.blur);this.last=performance.now();this.frame(this.last);this.physicsPromise=this.loadPhysics();this.loadCessna();this.unregisterFlightTools=registerFlightTools(this);
+  this.keyup=e=>this.keys.delete(e.code);this.blur=()=>{this.keys.clear();this.running=false;this.emit();};window.addEventListener('keydown',this.keydown);window.addEventListener('keyup',this.keyup);window.addEventListener('blur',this.blur);this.last=performance.now();this.frame(this.last);this.loadCessna();this.unregisterFlightTools=registerFlightTools(this);
  }
- async loadPhysics(){
-  try{
-   const flight=await JSBSimFlight.create();
-   if(this.disposed){flight.destroy();return null;}
-   this.flight=flight;this.physicsStatus='ready';this.emit();return flight;
-  }catch(error){if(!this.disposed){this.physicsStatus='error';this.onError('JSBSim could not load. Reopen Scenery to retry the flight engine download.');this.emit();}return null;}
+ async setPhysicsModel(model){
+  if(this.flight.switching||model===this.flight.model)return;
+  this.running=false;this.keys.clear();this.physicsStatus='loading';this.emit();
+  try{await this.flight.setModel(model);this.state=this.flight.state;}
+  catch{if(!this.disposed)this.onError('Could not load the selected flight physics. Your previous setting is still active; try again.');}
+  finally{if(!this.disposed){this.physicsStatus='ready';this.emit();}}
  }
  async loadCessna(){
   try {
@@ -40,20 +39,20 @@ export class FlightEngine{
    this.aircraftStatus='fallback';this.onError('The Cessna could not load. The original aircraft is available; reload to try again.');this.emit();
   }
  }
- emit(){this.onUpdate({...this.state,aircraftStatus:this.aircraftStatus,physicsStatus:this.physicsStatus,running:this.running,cameraMode:this.cameraMode,mode:this.mode});}
- toggle(){if(!this.google||!this.flight?.initialized)return;if(this.state.crashed)this.reset();if(!this.flight.initialized||this.state.crashed)return;this.running=!this.running;this.emit();}
+ emit(){this.onUpdate({...this.state,aircraftStatus:this.aircraftStatus,physicsStatus:this.physicsStatus,physicsModel:this.flight.model,running:this.running,cameraMode:this.cameraMode,mode:this.mode});}
+ toggle(){if(!this.google||!this.flight?.initialized||this.flight.switching)return;if(this.state.crashed)this.reset();if(!this.flight.initialized||this.state.crashed)return;this.running=!this.running;this.emit();}
  cycleCamera(){this.cameraMode=(this.cameraMode+1)%3;this.emit();}
- toggleAcrobatic(){if(this.flight?.initialized)this.flight.setAcrobatic(!this.state.acrobatic);else this.state.acrobatic=!this.state.acrobatic;this.keys.clear();this.emit();}
-  reset(){
+ toggleAcrobatic(){if(this.flight.switching)return;this.flight.setAcrobatic(!this.state.acrobatic);this.keys.clear();this.emit();}
+ reset(){
   this.running=false;this.keys.clear();
-  try{if(this.flight?.initialized)this.state=this.flight.reset(this.departure);else this.state=initialState(this.spawnAltitude);}
-  catch{this.onError('JSBSim could not reset the flight. Choose scenery again to reinitialize.');}
+  try{if(this.flight.initialized&&!this.flight.switching)this.state=this.flight.reset(this.departure);}
+  catch{this.onError('Could not reset the flight. Choose scenery again to reinitialize.');}
   this.emit();
  }
  input(){const k=this.keys;return {pitch:Number(k.has('ArrowDown'))-Number(k.has('ArrowUp')),roll:Number(k.has('ArrowRight'))-Number(k.has('ArrowLeft')),yaw:Number(k.has('KeyD'))-Number(k.has('KeyA')),throttle:Number(k.has('KeyW'))-Number(k.has('KeyS'))};}
  frame=(now)=>{
   if(this.disposed)return;this.raf=requestAnimationFrame(this.frame);const dt=Math.min((now-this.last)/1000,.05);this.last=now;const s=this.state;
-  if(this.running&&this.google){try{this.flight.advance(this.input(),dt);if(s.crashed)this.running=false;}catch{this.running=false;this.keys.clear();this.onError('JSBSim stopped the flight. Reset to restart.');}}
+  if(this.running&&this.google){try{this.flight.advance(this.input(),dt);if(s.crashed)this.running=false;}catch{this.running=false;this.keys.clear();this.onError('The physics engine stopped the flight. Reset to restart.');}}
   this.plane.position.set(s.x,s.sceneY??s.y,s.z);this.plane.quaternion.copy(s.attitude);this.plane.userData.prop.rotation.z+=this.running?dt*s.rpm*Math.PI/30:0;
 
   updateFlightCamera(this.camera,this.plane.position,s,this.cameraMode);this.plane.visible=!!this.google&&this.cameraMode!==1;
@@ -61,7 +60,7 @@ export class FlightEngine{
   if(now-(this.lastEmit||0)>90){this.emit();this.lastEmit=now;}
  }
  async connectGoogle(key,location){
-  this.running=false;this.emit();if(this.physicsStatus==='error'){this.physicsStatus='loading';this.physicsPromise=this.loadPhysics();}const flight=await this.physicsPromise;if(!flight)throw Error('JSBSim is unavailable');const C=await import('cesium');await import('cesium/Build/Cesium/Widgets/widgets.css');if(this.disposed)return;
+  this.running=false;this.emit();if(this.flight.switching)throw Error('Flight physics is loading');const flight=this.flight;const C=await import('cesium');await import('cesium/Build/Cesium/Widgets/widgets.css');if(this.disposed)return;
   const tiles=await C.createGooglePhotorealistic3DTileset({key,onlyUsingWithGoogleGeocoder:true},{
    showCreditsOnScreen:true,
    // Request finer city geometry instead of waiting for a stationary camera.
