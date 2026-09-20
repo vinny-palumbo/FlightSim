@@ -4,7 +4,29 @@ A browser flight simulator with Arcade (default) or Realistic (JSBSim) flight ph
 
 ## Run
 
-Requires Node.js 22.12+. Run `npm install`, then `npm run dev`. Open http://localhost:5173. `npm run build` produces a static site in `dist`; `npm run preview` serves it locally. The predev/prebuild scripts validate the vendored JSBSim runtime; rebuilding instructions are included under public/jsbsim/source. No physics server is required.
+Requires Node.js 22.12+ and npm. Node 22 is selected in `.nvmrc` and used in CI.
+
+```sh
+npm ci
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). No physics server is required.
+Flying requires your own Google Maps API key; there is no offline practice mode.
+The key is entered in the scenery dialog, not in a `.env` file or source code.
+
+| Command | Purpose |
+| --- | --- |
+| `npm ci` | Install the exact dependencies in the lockfile |
+| `npm run dev` | Start the local development server |
+| `npm test` | Run physics, aircraft, and camera tests, including the shipped WASM engine |
+| `npm run build` | Validate the vendored runtime and build the static site in `dist/` |
+| `npm run preview` | Serve the production build locally |
+
+The predev/prebuild scripts validate the vendored JSBSim runtime without replacing
+it. See [rebuilding instructions](public/jsbsim/source/BUILD.md) if you need to
+change that runtime. GitHub Actions runs installation, tests, and a production
+build for pushes and pull requests; no Google API key is needed for these checks.
 
 ## Fly
 
@@ -37,7 +59,7 @@ The aircraft uses an outdoor reflection environment, anisotropic texture filteri
 ## Structure
 
 - `src/flight-physics.js`: model selection, lazy WASM loading, Arcade adapter.
-- `src/arcade-physics.js`: unchanged version 8 flight physics.
+- `src/arcade-physics.js`: simplified Arcade flight physics.
 - `src/jsbsim-flight.js`: WASM lifecycle, aircraft initialization, control assistance, state mapping.
 - `src/flight-state.js`: initial state and shared utility.
 - `src/engine.js`: Three.js renderer, input, camera, and Cesium integration.
@@ -52,3 +74,30 @@ The aircraft uses an outdoor reflection environment, anisotropic texture filteri
 Settings and the scenery chooser offer **Rafale M — F-16 physics** alongside the original Cessna. Selecting the jet uses the supplied Rafale GLB with its original textures, gear up, and a larger camera distance. It loads actual JSBSim F-16A dynamics, not Rafale performance data. The jet starts at 350 KCAS, uses the F-16's original fly-by-wire logic, and maps the upper half of the throttle to afterburner. Both normal and Acrobatic controls remain available. Switching aircraft pauses and resets the flight at the current departure; switching back restores the Cessna's prior Arcade/Realistic preference. Startup remains Cessna + Arcade.
 
 The Rafale asset is by bohmerang under CC BY-NC-SA 4.0 (noncommercial, share alike). See public/models/LICENSE.md and in-app credits. The F-16 XML is GPL-licensed; full editable configuration and source notices are shipped. The JSBSim WASM runtime is rebuilt with exception handling enabled throughout the library to load the unmodified F-16 flight-control configuration. See public/jsbsim/NOTICE.md and source/BUILD.md.
+
+## Deployment
+
+Build with `npm run build` and serve the contents of `dist/` at the root of a
+website. Model, WASM, Cesium, and credit URLs currently start with `/`; deployment
+under a subdirectory such as a GitHub Pages project URL needs additional path
+configuration and is not supported out of the box. Publishing the source on
+GitHub does not deploy the simulator. The CI workflow only tests and builds.
+
+Allow the deployed site's origin in your Google key's HTTP referrer restrictions.
+The local `.openai/hosting.json` connection is ignored by Git and is not needed
+to build or run a clone. Existing Git history may still contain its project ID;
+it is deployment metadata, not a credential.
+
+## Licenses and contributions
+
+Original application code and documentation are available under the
+[MIT license](LICENSE.md). Third-party licenses remain separate; MIT does not
+cover the bundled aircraft, physics components, or Google imagery.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for aircraft and physics
+licenses. In particular, the bundled Rafale asset is restricted to noncommercial
+use. Keep attribution, license texts, and corresponding JSBSim source when
+redistributing those components.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development checks and
+[VERIFICATION.md](VERIFICATION.md) for the scope of local verification.

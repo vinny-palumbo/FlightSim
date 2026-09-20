@@ -3,3 +3,14 @@ dist/
 .env*
 
 .sites-runtime/
+
+# Local JSBSim rebuild workspace; distributable source stays in public/jsbsim/source/.
+/tools/jsbsim-build/
+
+# Local deployment connection (keep on disk, out of future commits).
+.openai/hosting.json
+
+# Local logs and operating-system metadata.
+*.log
+.DS_Store
+Thumbs.db

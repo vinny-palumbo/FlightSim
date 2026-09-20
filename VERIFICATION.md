@@ -1,23 +1,45 @@
 # Verification
 
-Verified September 19, 2026.
+Last checked locally: September 20, 2026, on Windows with Node.js 22.22.2.
 
-- Production build: passed (`npm run build`).
-- Physics tests: 6 passed (cruise, coordinated turns, pitch/speed tradeoff, throttle/stall, terrain contact, sequential checkpoints).
-- Browser: Codex in-app Browser; no standalone Playwright fallback used.
-- Desktop: native 1280 × 720 viewport. Mobile: 390 × 844, then viewport restored. Mobile canvas and document widths both 390 pixels; no horizontal overflow.
-- Browser interaction path: start, advancing speed/time/course distance, pause, resume keyboard shortcut, camera button and C shortcut, reset, controls dialog, scenery dialog, departure selection, missing-key disabled state, invalid-key connection error and return to usable practice flight.
-- Final reloaded practice scene: no browser warning/error logs.
-- Live Google imagery: not verified; a valid user Google Maps API key and enabled billing are required. Invalid-key rejection was verified. No claim of a successfully rendered Google city is made.
+## Automated checks
 
-## Visual comparison
+- Fresh locked installation succeeded. This machine required command-scoped
+  `NODE_OPTIONS=--use-system-ca` and `npm ci --os=win32 --cpu=x64` because its
+  npm configuration selected Linux binaries and its registry connection needed
+  the system certificate store. Global settings were not changed.
+- `npm test`: all 22 tests passed.
+- `npm run build`: production build passed, including vendored runtime validation.
+- The suite executes the shipped JSBSim WASM binary, not a physics mock alone.
+- Cessna and F-16 cruise, control direction, throttle response, reset, and flight
+  model selection are covered. Cessna tests also cover frame-rate consistency,
+  continuity between Normal and Acrobatic modes, and initialization failures.
+- Model switching tests cover loading failures and disposal during loading.
+- Aircraft/camera tests cover model orientation, size, and camera framing,
+  including narrow and wide views for the Rafale.
 
-The generated `design-concept.png` and final in-app browser screenshot `preview.png` were both inspected using `view_image`.
+The GitHub Actions workflow performs a locked dependency install, tests, and a
+production build on Node 22 under Ubuntu. Its first hosted run is pending upload
+to GitHub; local success does not claim that the hosted workflow has already run.
 
-Comparison points: (1) brand placement and letter spacing, (2) upper-right scenery/controls actions, (3) centered compass and orange heading pointer, (4) bottom-left speed/altitude/throttle hierarchy, (5) orange central flight action and adjacent camera/reset controls, (6) bottom-right three-row flight plan, (7) white/orange aircraft and coastal palette.
+## Browser and scenery coverage
 
-Fixed during review: small chase-camera aircraft, overly flat water/sky, narrow-screen aircraft framing, and missing accessible names on collapsed mobile navigation buttons.
+No new browser interaction or visual review was performed for this repository
+preparation. Live Google imagery has not been verified with a valid API key.
+It requires Map Tiles API access, billing, and suitable referrer restrictions.
 
-Copy comparison: brand, Flight simulator, Scenery, Controls, AIRSPEED, ALTITUDE, THROTTLE, Start flight, Reset, FLIGHT PLAN and checkpoint names are preserved. Intentional changes: Camera becomes the active camera name; real instrument values replace concept numbers; actionable start/pause/stall guidance is added; footer reports actual elapsed time and camera mode.
+An earlier September 19 browser review covered a practice-island version.
+That version's offline scenery, checkpoints, and fallback flight are no longer
+the current experience. `preview.png` and `design-concept.png` are historical
+visual references, not verification of the current interface.
 
-The interface was checked for fidelity to the concept. It is not a pixel-identical reproduction: the independent playable low-poly terrain and aircraft are simpler than the concept illustration; mobile stacks the instruments/actions and hides the course list; the throttle is an interactive slider; checkpoints are visible rings. No unresolved UI overlap or broken tested control remains. Photorealistic Google scenery remains credential-gated.
+Before a public playable release, check the current app with live scenery:
+
+- Connect a destination, start, pause, resume, reset, and switch camera views.
+- Switch Cessna Arcade/Realistic physics and select the Rafale/F-16 option.
+- Check Acrobatic mode, keyboard controls, touch controls, and pause on blur.
+- Check a narrow viewport and visible Google/aircraft attribution.
+- Check rejected credentials and scenery download errors.
+
+Flights start airborne. Terrain/building collisions and takeoff/landing gameplay
+are not supported; passing through scenery is a documented limitation.
