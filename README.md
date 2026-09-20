@@ -1,5 +1,7 @@
 # Aeronaut
 
+![Aeronaut flight simulator showing a Cessna above Miami Beach with live flight instruments and Google 3D scenery.](docs/images/aeronaut-miami.png)
+
 A browser flight simulator with Arcade (default) or Realistic (JSBSim) flight physics and Google Photorealistic 3D Tiles through CesiumJS.
 
 ## Run
