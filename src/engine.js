@@ -41,7 +41,7 @@ export class FlightEngine{
  frame=(now)=>{
   if(this.disposed)return;this.raf=requestAnimationFrame(this.frame);const dt=Math.min((now-this.last)/1000,.05);this.last=now;const s=this.state;
   if(this.running&&this.google){step(s,this.input(),dt,()=>-10000);if(s.crashed)this.running=false;}
-  this.plane.position.set(s.x,s.y,s.z);if(s.acrobatic)this.plane.quaternion.copy(s.attitude);else this.plane.rotation.set(s.pitch,-s.heading,-s.roll,'YXZ');this.plane.userData.prop.rotation.z+=this.running?dt*(30+s.enginePower*50):0;
+  this.plane.position.set(s.x,s.y,s.z);this.plane.quaternion.copy(s.attitude);this.plane.userData.prop.rotation.z+=this.running?dt*(30+s.enginePower*50):0;
 
   updateFlightCamera(this.camera,this.plane.position,s,this.cameraMode);this.plane.visible=!!this.google&&this.cameraMode!==1;
   if(this.google)this.syncGoogle();this.renderer.render(this.scene,this.camera);

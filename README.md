@@ -62,6 +62,12 @@ The app opens Choose your scenery automatically and requires a Google connection
 
 ## Flight dynamics
 
-Flight uses velocity-based lift, drag, thrust and gravity with 120 Hz maximum integration steps. Control rates and engine power spool smoothly. Low airspeed reduces control authority; excessive angle of attack loses lift and creates a recoverable stall. Normal flight retains coordinated-turn and self-leveling assistance. Acrobatic mode uses body-local quaternion rotations and a broader lift envelope with more engine power, while retaining momentum and speed/height tradeoffs. It is a tuned game model, not a validated Cessna flight model. Chase camera behavior is preserved in both modes.
+Both modes use one SI-unit light-aircraft model: mass 1,100 kg, wing area 16.2 square meters, shared lift/stall curve, finite thrust and propulsive power, atmospheric density, gravity, drag, and sideslip resistance. Coefficients and moments are illustrative, not calibrated Cessna performance data.
 
-Regression coverage includes cruise, climb/dive energy tradeoffs, gliding, stall recovery, control response, momentum on mode changes, frame-rate consistency, full rotations, and aircraft framing.
+Normal mode assists attitude control; Acrobatic mode accepts unrestricted rate commands. Both use aerodynamic moments and rigid-body angular dynamics, with control authority vanishing at zero airflow. Switching modes preserves attitude and both linear and angular momentum. There is no extra acrobatic thrust, widened stall envelope, instant leveling, or artificial lift cap. Lift is perpendicular to airflow; drag dissipates energy. Positive rotational work is charged to the airstream. Midpoint force integration and small substeps reduce numerical energy drift.
+
+Stall detection uses angle of attack rather than a universal speed cutoff. Tests cover high-speed stalls, power-off energy loss in both modes, finite engine power, force directions, zero-flow controls, smooth inverted recovery, maneuver energy tradeoffs, frame-rate consistency, and camera framing.
+
+Reference principles: [NASA lift and drag](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/what-is-lift/) and [FAA stalls and load factor](https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/airplane_handbook/06_afh_ch5.pdf).
+
+Limits: this remains a simplified aerodynamic simulation, not a validated Cessna flight model. Wind, detailed propeller flow, structural failure, fuel burn and landing physics are not modeled. Google scenery collision detection remains disabled; passing through terrain/buildings is still possible. The synthetic-ground collision unit test verifies the integration callback only, not Google mesh collision detection.

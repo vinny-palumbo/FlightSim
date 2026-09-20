@@ -4,7 +4,7 @@ export function updateFlightCamera(camera, position, state, mode) {
   const { heading, pitch } = state;
   const forward = new Vector3(Math.sin(heading) * Math.cos(pitch), Math.sin(pitch), -Math.cos(heading) * Math.cos(pitch));
   camera.up.set(0, 1, 0);
-  if(state.acrobatic&&state.attitude){
+  if(state.attitude&&(state.acrobatic||Math.abs(state.roll)>1.1||Math.abs(state.pitch)>.7)){
     const direction=new Vector3(0,0,-1).applyQuaternion(state.attitude);
     if(mode===1){
       const up=new Vector3(0,1,0).applyQuaternion(state.attitude);
