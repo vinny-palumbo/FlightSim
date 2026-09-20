@@ -1,1 +1,25 @@
-{"name":"aeronaut-flight-simulator","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1","build":"vite build","preview":"vite preview --host 127.0.0.1","test":"node --test tests/*.test.js"},"dependencies":{"react":"^19.1.0","react-dom":"^19.1.0","three":"^0.180.0","cesium":"^1.133.0"},"devDependencies":{"vite":"^7.1.0","vite-plugin-static-copy":"^3.1.2"}}
+{
+  "name": "aeronaut-flight-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.js",
+    "prebuild": "node scripts/sync-jsbsim-assets.mjs",
+    "predev": "node scripts/sync-jsbsim-assets.mjs"
+  },
+  "dependencies": {
+    "@0x62/jsbsim-wasm": "1.2.4-beta.4",
+    "cesium": "^1.133.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "vite-plugin-static-copy": "^3.1.2"
+  }
+}
