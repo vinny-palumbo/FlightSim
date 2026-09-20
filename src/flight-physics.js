@@ -12,8 +12,8 @@ export class ArcadeFlight {
 // Keep Arcade independent of the optional WASM download. Switching models starts
 // a fresh flight: their state representations cannot safely be interchanged.
 export class FlightPhysics {
- constructor({createRealistic=async()=>{const {JSBSimFlight}=await import('./jsbsim-flight.js');return JSBSimFlight.create();}}={}){
-  this.active=new ArcadeFlight();this.model='arcade';this.createRealistic=createRealistic;this.switching=false;this.destroyed=false;
+ constructor({createRealistic=async(aircraftModel)=>{const {JSBSimFlight}=await import('./jsbsim-flight.js');return JSBSimFlight.create({aircraftModel});}}={}){
+  this.active=new ArcadeFlight();this.model='arcade';this.aircraft='cessna';this.cessnaModel='arcade';this.createRealistic=createRealistic;this.switching=false;this.destroyed=false;
  }
  get state(){return this.active.state;}
  get initialized(){return this.active.initialized;}
@@ -22,15 +22,24 @@ export class FlightPhysics {
  advance(input,dt){return this.switching?this.state:this.active.advance(input,dt);}
  async setModel(model){
   if(!['arcade','realistic'].includes(model))throw Error('Unknown flight physics');
+  if(this.aircraft==='rafale'&&model!=='realistic')throw Error('Rafale uses F-16 physics');
+  await this.configure(model,this.aircraft);
+  if(this.aircraft==='cessna')this.cessnaModel=model;
+ }
+ async setAircraft(aircraft){
+  if(!['cessna','rafale'].includes(aircraft))throw Error('Unknown aircraft');
+  await this.configure(aircraft==='rafale'?'realistic':this.cessnaModel,aircraft);
+ }
+ async configure(model,aircraft){
   if(this.destroyed||this.switching)throw Error('Flight physics is unavailable');
-  if(model===this.model)return;
+  if(model===this.model&&aircraft===this.aircraft)return;
   this.switching=true;let next;
   try{
-   next=model==='arcade'?new ArcadeFlight():await this.createRealistic();
+   next=model==='arcade'?new ArcadeFlight():await this.createRealistic(aircraft==='rafale'?'f16':'c172p');
    if(this.destroyed)throw Error('Flight has closed');
    next.setAcrobatic(!!this.state.acrobatic);
    if(this.initialized)next.reset(this.location);
-   const previous=this.active;this.active=next;this.model=model;next=null;previous.destroy();
+   const previous=this.active;this.active=next;this.model=model;this.aircraft=aircraft;next=null;previous.destroy();
   }finally{next?.destroy();this.switching=false;}
  }
  destroy(){this.destroyed=true;this.active.destroy();}

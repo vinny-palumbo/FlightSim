@@ -52,8 +52,20 @@ export function prepareAircraft(gltf) {
   return plane;
 }
 
-export async function loadAircraft() {
-  return prepareAircraft(await new GLTFLoader().loadAsync(aircraftUrl));
+export function prepareRafale(gltf){
+  const model=gltf.scene;
+  // Source nose is +X and up is +Y. Flight rendering uses nose -Z.
+  model.rotation.y=Math.PI/2;
+  for(const name of ['Rafale-landingOn_6','Rafale-landingOnLight_7'])model.getObjectByName(name)?.removeFromParent();
+  const bounds=new Box3().setFromObject(model),scale=15.27/bounds.getSize(new Vector3()).z;
+  model.scale.multiplyScalar(scale);model.position.addScaledVector(bounds.getCenter(new Vector3()),-scale);
+  const plane=new Group();plane.name='Rafale M — bohmerang';plane.add(model);plane.userData.cameraScale=1.3;
+  plane.updateMatrixWorld(true);return plane;
+}
+
+export async function loadAircraft(aircraft='cessna') {
+  const gltf=await new GLTFLoader().loadAsync(aircraft==='rafale'?'/models/rafale-m.glb':aircraftUrl);
+  return aircraft==='rafale'?prepareRafale(gltf):prepareAircraft(gltf);
 }
 
 export function disposeAircraft(root) {
@@ -62,7 +74,8 @@ export function disposeAircraft(root) {
     if (object.geometry) geometries.add(object.geometry);
     for (const material of object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : []) {
       materials.add(material);
-      for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+      // The environment is shared between aircraft and owned by the renderer.
+      for (const [key,value] of Object.entries(material)) if (key!=='envMap'&&value?.isTexture) textures.add(value);
     }
   });
   textures.forEach(texture => { texture.dispose(); texture.source?.data?.close?.(); });

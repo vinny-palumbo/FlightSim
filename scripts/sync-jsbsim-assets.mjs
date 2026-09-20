@@ -1,6 +1,8 @@
-import {copyFile,mkdir} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 const root=new URL('../',import.meta.url);
-await mkdir(new URL('public/jsbsim/',root),{recursive:true});
+// Vendored runtime is rebuilt with exceptions enabled throughout JSBSim.
+// Do not replace it with npm's binary: that build cannot load the F-16 FCS.
 for(const file of ['jsbsim_wasm.mjs','jsbsim_wasm.wasm']){
- await copyFile(new URL(`node_modules/@0x62/jsbsim-wasm/dist/wasm/${file}`,root),new URL(`public/jsbsim/${file}`,root));
+ const contents=await readFile(new URL(`public/jsbsim/${file}`,root));
+ if(contents.length<1000)throw Error(`Missing JSBSim runtime: ${file}`);
 }

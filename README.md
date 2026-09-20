@@ -4,7 +4,7 @@ A browser flight simulator with Arcade (default) or Realistic (JSBSim) flight ph
 
 ## Run
 
-Requires Node.js 22.12+. Run `npm install`, then `npm run dev`. Open http://localhost:5173. `npm run build` produces a static site in `dist`; `npm run preview` serves it locally. The predev/prebuild scripts copy the pinned JSBSim runtime into public assets. No physics server is required.
+Requires Node.js 22.12+. Run `npm install`, then `npm run dev`. Open http://localhost:5173. `npm run build` produces a static site in `dist`; `npm run preview` serves it locally. The predev/prebuild scripts validate the vendored JSBSim runtime; rebuilding instructions are included under public/jsbsim/source. No physics server is required.
 
 ## Fly
 
@@ -45,3 +45,10 @@ The aircraft uses an outdoor reflection environment, anisotropic texture filteri
 - `src/aircraft.js`: GLB loading, paint and propeller setup.
 - `src/main.jsx`: React instruments, dialogs and scenery setup.
 - `public/jsbsim/`: runtime, aircraft definitions, licenses, and corresponding source.
+
+
+## Rafale M / F-16 option
+
+Settings and the scenery chooser offer **Rafale M — F-16 physics** alongside the original Cessna. Selecting the jet uses the supplied Rafale GLB with its original textures, gear up, and a larger camera distance. It loads actual JSBSim F-16A dynamics, not Rafale performance data. The jet starts at 350 KCAS, uses the F-16's original fly-by-wire logic, and maps the upper half of the throttle to afterburner. Both normal and Acrobatic controls remain available. Switching aircraft pauses and resets the flight at the current departure; switching back restores the Cessna's prior Arcade/Realistic preference. Startup remains Cessna + Arcade.
+
+The Rafale asset is by bohmerang under CC BY-NC-SA 4.0 (noncommercial, share alike). See public/models/LICENSE.md and in-app credits. The F-16 XML is GPL-licensed; full editable configuration and source notices are shipped. The JSBSim WASM runtime is rebuilt with exception handling enabled throughout the library to load the unmodified F-16 flight-control configuration. See public/jsbsim/NOTICE.md and source/BUILD.md.

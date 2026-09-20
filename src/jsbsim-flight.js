@@ -14,20 +14,21 @@ export function earthFrame(lat,lon){
 const inFrame=(v,f)=>new Vector3(v.dot(f.east),v.dot(f.up),-v.dot(f.north));
 
 export class JSBSimFlight {
- static async create({moduleUrl='/jsbsim/jsbsim_wasm.mjs',wasmUrl='/jsbsim/jsbsim_wasm.wasm',data,fetcher=fetch}={}){
+ static async create({aircraftModel='c172p',moduleUrl='/jsbsim/jsbsim_wasm.mjs',wasmUrl='/jsbsim/jsbsim_wasm.wasm',data,fetcher=fetch}={}){
+  if(!['c172p','f16'].includes(aircraftModel))throw Error('Unsupported aircraft model');
   // An absolute URL keeps Vite from rewriting this public runtime as a source import.
   if(typeof window!=='undefined'){moduleUrl=new URL(moduleUrl,window.location.href);wasmUrl=new URL(wasmUrl,window.location.href);}
   const sdk=await JSBSimSdk.create({moduleUrl,wasmUrl,log:{console:false}});
   try{
    sdk.setDebugLevel(0);sdk.disableOutput();
-   if(!data){const response=await fetcher('/jsbsim/c172p.json');if(!response.ok)throw Error('Aircraft data download failed');data=await response.json();}
+   if(!data){const response=await fetcher(`/jsbsim/${aircraftModel}.json`);if(!response.ok)throw Error('Aircraft data download failed');data=await response.json();}
    for(const [path,xml] of Object.entries(data))sdk.writeDataFile(path,xml);
-   if(!sdk.loadModel('c172p'))throw Error('JSBSim Cessna model failed to load');
+   if(!sdk.loadModel(aircraftModel))throw Error(`JSBSim ${aircraftModel} model failed to load`);
    sdk.setDt(STEP);
-   return new JSBSimFlight(sdk);
+   return new JSBSimFlight(sdk,aircraftModel);
   }catch(error){sdk.destroy();throw error;}
  }
- constructor(sdk){this.sdk=sdk;this.state=initialState();this.accumulator=0;this.initialized=false;this.destroyed=false;}
+ constructor(sdk,aircraftModel='c172p'){this.aircraftModel=aircraftModel;this.jet=aircraftModel==='f16';this.sdk=sdk;this.state=initialState();this.accumulator=0;this.initialized=false;this.destroyed=false;}
  get(name){return this.sdk.getPropertyValue(name);}
  set(name,value){this.sdk.setPropertyValue(name,value);}
  reset(location={lat:37.795,lon:-122.46,altitude:1100}){
@@ -39,16 +40,17 @@ export class JSBSimFlight {
   // Initialize airborne, engine running, and trimmed. These writes are reset-only.
   for(const [name,value] of Object.entries({
    'ic/lat-geod-deg':location.lat,'ic/long-gc-deg':location.lon,'ic/h-sl-ft':this.location.altitude/FT,
-   'ic/vc-kts':95,'ic/psi-true-deg':0,'ic/phi-deg':0,'ic/theta-deg':0,'ic/gamma-deg':0,
+   'ic/vc-kts':this.jet?350:95,'ic/psi-true-deg':0,'ic/phi-deg':0,'ic/theta-deg':0,'ic/gamma-deg':0,
    'ic/p-rad_sec':0,'ic/q-rad_sec':0,'ic/r-rad_sec':0,
    'ic/terrain-elevation-ft':0,'fcs/throttle-cmd-norm':.65,'fcs/mixture-cmd-norm':1,
    'fcs/elevator-cmd-norm':0,'fcs/aileron-cmd-norm':0,'fcs/rudder-cmd-norm':0,
    'fcs/pitch-trim-cmd-norm':0,'fcs/roll-trim-cmd-norm':0,'fcs/yaw-trim-cmd-norm':0,
    'fcs/flap-cmd-norm':0,'propulsion/magneto_cmd':3,
+   ...(this.jet?{'gear/gear-cmd-norm':0,'gear/gear-pos-norm':0,'fcs/speedbrake-cmd-norm':0}:{}),
   }))this.set(name,value);
   if(!this.sdk.runIc())throw Error('JSBSim initial conditions failed');
   this.set('propulsion/set-running',-1);
-  this.set('fcs/mixture-cmd-norm',clamp(.9*this.get('atmosphere/P-psf')/2116.22,.2,1));
+  if(!this.jet)this.set('fcs/mixture-cmd-norm',clamp(.9*this.get('atmosphere/P-psf')/2116.22,.2,1));
   this.sdk.doTrim(TrimMode.tFull);
   this.trim={elevator:this.get('fcs/elevator-cmd-norm'),aileron:this.get('fcs/aileron-cmd-norm'),rudder:this.get('fcs/rudder-cmd-norm'),pitch:this.get('attitude/theta-rad')};
   this.controls={...this.trim};
@@ -85,7 +87,7 @@ export class JSBSimFlight {
    this.set(`fcs/${control}-cmd-norm`,this.controls[control]);
   }
   this.set('fcs/throttle-cmd-norm',s.throttle);
-  this.set('fcs/mixture-cmd-norm',clamp(.9*this.get('atmosphere/P-psf')/2116.22,.2,1));
+  if(!this.jet)this.set('fcs/mixture-cmd-norm',clamp(.9*this.get('atmosphere/P-psf')/2116.22,.2,1));
  }
  readState(){
   const s=this.state,oldTime=s.time;
@@ -102,8 +104,9 @@ export class JSBSimFlight {
   s.speed=this.get('velocities/vc-kts')/1.94384;s.trueAirspeed=this.get('velocities/vt-fps')*FT;
   s.pitchRate=this.get('velocities/q-rad_sec');s.rollRate=this.get('velocities/p-rad_sec');s.yawRate=this.get('velocities/r-rad_sec');
   s.angleOfAttack=this.get('aero/alpha-rad');s.loadFactor=this.get('accelerations/Nz');
-  s.rpm=this.get('propulsion/engine/propeller-rpm');s.enginePower=clamp(s.rpm/2700,0,1);
-  s.stall=this.get('systems/stall-warn-norm')>=1||s.angleOfAttack<-.087;
+  s.rpm=this.jet?0:this.get('propulsion/engine/propeller-rpm');s.enginePower=clamp(this.jet?this.get('propulsion/engine/n2')/100:s.rpm/2700,0,1);
+  s.aircraftModel=this.aircraftModel;s.mach=this.get('velocities/mach');
+  s.stall=this.jet?Math.abs(s.angleOfAttack)>.5:this.get('systems/stall-warn-norm')>=1||s.angleOfAttack<-.087;
   s.time=this.get('simulation/sim-time-sec');s.distance+=s.trueAirspeed*Math.max(0,s.time-oldTime);
   // Scenery mesh contacts are not supplied to JSBSim. Stop at its sea-level surface.
   s.crashed=this.get('position/h-agl-ft')<5||this.get('gear/unit[0]/WOW')>0;

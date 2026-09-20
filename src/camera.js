@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 
-export function updateFlightCamera(camera, position, state, mode) {
+export function updateFlightCamera(camera, position, state, mode, aircraftScale = 1) {
   const { heading, pitch } = state;
   const forward = new Vector3(Math.sin(heading) * Math.cos(pitch), Math.sin(pitch), -Math.cos(heading) * Math.cos(pitch));
   camera.up.set(0, 1, 0);
@@ -13,21 +13,23 @@ export function updateFlightCamera(camera, position, state, mode) {
       camera.lookAt(camera.position.clone().add(direction));
     }else if(mode===0){
       // Attach the chase offset and up vector to the aircraft through every attitude.
-      const distance=Math.max(29,24/camera.aspect);
+      const distance=Math.max(29,24/camera.aspect)*aircraftScale;
       const up=new Vector3(0,1,0).applyQuaternion(state.attitude);
       camera.up.copy(up);
       camera.position.copy(position).addScaledVector(direction,-distance).addScaledVector(up,distance*.3);
       camera.lookAt(position);
     }else{
-      camera.position.copy(position).add(new Vector3(45,25,55));
+      camera.position.copy(position).add(new Vector3(45,25,55).multiplyScalar(aircraftScale));
       camera.lookAt(position);
     }
     return;
   }
   if (mode === 0) {
     // Original level chase position and pitch-driven look-ahead.
-    const distance = Math.max(25, 22 / camera.aspect);
+    const distance = Math.max(25, 22 / camera.aspect)*aircraftScale;
     camera.position.copy(position).add(new Vector3(-Math.sin(heading) * distance, distance * .28, Math.cos(heading) * distance));
+    // The longer jet needs a centered target to keep its nose and tail in view.
+    if(aircraftScale>1){camera.lookAt(position);return;}
     // Retain the original chase setup with a gentler pitch response.
     // A shallow look-ahead lets the aircraft move in frame without following
     // its nose all the way toward the sky. No framing clamp or pitch orbit.
@@ -41,7 +43,7 @@ export function updateFlightCamera(camera, position, state, mode) {
     camera.position.copy(position).addScaledVector(forward, 3).add(new Vector3(0, 1.4, 0));
     camera.lookAt(position.clone().addScaledVector(forward, 100));
   } else {
-    camera.position.copy(position).add(new Vector3(55, 25, 65));
+    camera.position.copy(position).add(new Vector3(55, 25, 65).multiplyScalar(aircraftScale));
     camera.lookAt(position.clone().addScaledVector(forward, 100));
   }
 }

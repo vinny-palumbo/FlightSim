@@ -8,7 +8,7 @@ import { FlightPhysics } from './flight-physics';
 
 export class FlightEngine{
  constructor(host,onUpdate,onError){
-  this.host=host;this.onUpdate=onUpdate;this.onError=onError;this.flight=new FlightPhysics();this.state=this.flight.state;this.keys=new Set();this.running=false;this.cameraMode=0;this.mode='setup';this.spawnAltitude=1100;this.aircraftStatus='loading';this.physicsStatus='ready';this.departure={lat:37.795,lon:-122.46,altitude:1100};
+  this.host=host;this.onUpdate=onUpdate;this.onError=onError;this.flight=new FlightPhysics();this.state=this.flight.state;this.keys=new Set();this.running=false;this.cameraMode=0;this.mode='setup';this.spawnAltitude=1100;this.aircraftStatus='loading';this.aircraftLoading=false;this.aircraftRequest=0;this.physicsStatus='ready';this.departure={lat:37.795,lon:-122.46,altitude:1100};
   this.scene=new T.Scene();this.scene.background=new T.Color(0x88b8d5);this.scene.fog=new T.FogExp2(0x96bdcc,.000042);
   this.scene.add(new T.HemisphereLight(0xc7e7ff,0x637257,1.3));const sun=new T.DirectionalLight(0xffeed7,2.5);sun.position.set(-2000,5000,1000);this.scene.add(sun);
   this.plane=createPlane();this.scene.add(this.plane);
@@ -19,33 +19,49 @@ export class FlightEngine{
   this.keyup=e=>this.keys.delete(e.code);this.blur=()=>{this.keys.clear();this.running=false;this.emit();};window.addEventListener('keydown',this.keydown);window.addEventListener('keyup',this.keyup);window.addEventListener('blur',this.blur);this.last=performance.now();this.frame(this.last);this.loadCessna();this.unregisterFlightTools=registerFlightTools(this);
  }
  async setPhysicsModel(model){
-  if(this.flight.switching||model===this.flight.model)return;
+  if(this.aircraftLoading||this.flight.switching||model===this.flight.model)return;
   this.running=false;this.keys.clear();this.physicsStatus='loading';this.emit();
   try{await this.flight.setModel(model);this.state=this.flight.state;}
   catch{if(!this.disposed)this.onError('Could not load the selected flight physics. Your previous setting is still active; try again.');}
   finally{if(!this.disposed){this.physicsStatus='ready';this.emit();}}
  }
+ async setAircraft(aircraft){
+  if(this.aircraftLoading||this.flight.switching||aircraft===this.flight.aircraft)return;
+  this.aircraftLoading=true;this.running=false;this.keys.clear();this.emit();
+  const request=++this.aircraftRequest;let plane;
+  try{
+   plane=await loadAircraft(aircraft);
+   if(this.disposed||request!==this.aircraftRequest){disposeAircraft(plane);return;}
+   improveAircraftMaterials(plane,this.renderer,this.aircraftEnvironment);
+   await this.flight.setAircraft(aircraft);
+   if(this.disposed){disposeAircraft(plane);return;}
+   const previous=this.plane;this.plane=plane;this.scene.add(plane);this.scene.remove(previous);disposeAircraft(previous);
+   this.state=this.flight.state;this.aircraftStatus=aircraft;plane=null;
+  }catch{if(plane)disposeAircraft(plane);if(!this.disposed)this.onError('Could not load the aircraft and its flight physics. Your previous aircraft remains selected. Try again.');}
+  finally{if(!this.disposed){this.aircraftLoading=false;this.emit();}}
+ }
  async loadCessna(){
+  const request=++this.aircraftRequest;
   try {
    const plane=await loadAircraft();
-   if(this.disposed){disposeAircraft(plane);return;}
+   if(this.disposed||request!==this.aircraftRequest){disposeAircraft(plane);return;}
    improveAircraftMaterials(plane,this.renderer,this.aircraftEnvironment);
    const previous=this.plane;
    plane.position.copy(previous.position);plane.quaternion.copy(previous.quaternion);plane.visible=previous.visible;
    this.scene.add(plane);this.scene.remove(previous);this.plane=plane;disposeAircraft(previous);
    this.aircraftStatus='cessna';this.emit();
   } catch {
-   if(this.disposed)return;
+   if(this.disposed||request!==this.aircraftRequest)return;
    this.aircraftStatus='fallback';this.onError('The Cessna could not load. The original aircraft is available; reload to try again.');this.emit();
   }
  }
- emit(){this.onUpdate({...this.state,aircraftStatus:this.aircraftStatus,physicsStatus:this.physicsStatus,physicsModel:this.flight.model,running:this.running,cameraMode:this.cameraMode,mode:this.mode});}
- toggle(){if(!this.google||!this.flight?.initialized||this.flight.switching)return;if(this.state.crashed)this.reset();if(!this.flight.initialized||this.state.crashed)return;this.running=!this.running;this.emit();}
+ emit(){this.onUpdate({...this.state,aircraftStatus:this.aircraftStatus,physicsStatus:this.physicsStatus,physicsModel:this.flight.model,aircraft:this.flight.aircraft,aircraftLoading:this.aircraftLoading,running:this.running,cameraMode:this.cameraMode,mode:this.mode});}
+ toggle(){if(!this.google||!this.flight?.initialized||this.flight.switching||this.aircraftLoading)return;if(this.state.crashed)this.reset();if(!this.flight.initialized||this.state.crashed)return;this.running=!this.running;this.emit();}
  cycleCamera(){this.cameraMode=(this.cameraMode+1)%3;this.emit();}
- toggleAcrobatic(){if(this.flight.switching)return;this.flight.setAcrobatic(!this.state.acrobatic);this.keys.clear();this.emit();}
+ toggleAcrobatic(){if(this.flight.switching||this.aircraftLoading)return;this.flight.setAcrobatic(!this.state.acrobatic);this.keys.clear();this.emit();}
  reset(){
   this.running=false;this.keys.clear();
-  try{if(this.flight.initialized&&!this.flight.switching)this.state=this.flight.reset(this.departure);}
+  try{if(this.flight.initialized&&!this.flight.switching&&!this.aircraftLoading)this.state=this.flight.reset(this.departure);}
   catch{this.onError('Could not reset the flight. Choose scenery again to reinitialize.');}
   this.emit();
  }
@@ -53,14 +69,14 @@ export class FlightEngine{
  frame=(now)=>{
   if(this.disposed)return;this.raf=requestAnimationFrame(this.frame);const dt=Math.min((now-this.last)/1000,.05);this.last=now;const s=this.state;
   if(this.running&&this.google){try{this.flight.advance(this.input(),dt);if(s.crashed)this.running=false;}catch{this.running=false;this.keys.clear();this.onError('The physics engine stopped the flight. Reset to restart.');}}
-  this.plane.position.set(s.x,s.sceneY??s.y,s.z);this.plane.quaternion.copy(s.attitude);this.plane.userData.prop.rotation.z+=this.running?dt*s.rpm*Math.PI/30:0;
+  this.plane.position.set(s.x,s.sceneY??s.y,s.z);this.plane.quaternion.copy(s.attitude);if(this.plane.userData.prop)this.plane.userData.prop.rotation.z+=this.running?dt*s.rpm*Math.PI/30:0;
 
-  updateFlightCamera(this.camera,this.plane.position,s,this.cameraMode);this.plane.visible=!!this.google&&this.cameraMode!==1;
+  updateFlightCamera(this.camera,this.plane.position,s,this.cameraMode,this.plane.userData.cameraScale??1);this.plane.visible=!!this.google&&this.cameraMode!==1;
   if(this.google)this.syncGoogle();this.renderer.render(this.scene,this.camera);
   if(now-(this.lastEmit||0)>90){this.emit();this.lastEmit=now;}
  }
  async connectGoogle(key,location){
-  this.running=false;this.emit();if(this.flight.switching)throw Error('Flight physics is loading');const flight=this.flight;const C=await import('cesium');await import('cesium/Build/Cesium/Widgets/widgets.css');if(this.disposed)return;
+  this.running=false;this.emit();if(this.flight.switching||this.aircraftLoading)throw Error('Aircraft is loading');const flight=this.flight;const C=await import('cesium');await import('cesium/Build/Cesium/Widgets/widgets.css');if(this.disposed)return;
   const tiles=await C.createGooglePhotorealistic3DTileset({key,onlyUsingWithGoogleGeocoder:true},{
    showCreditsOnScreen:true,
    // Request finer city geometry instead of waiting for a stationary camera.
