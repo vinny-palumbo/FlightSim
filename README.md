@@ -54,6 +54,8 @@ See [runtime notices and source](public/jsbsim/NOTICE.md) for versions, licenses
 
 ## Rendering and assets
 
+Press C to cycle Chase → Cockpit → Orbit. Cockpit view uses a pilot-seat position specific to each aircraft and follows its full pitch, bank, and heading, including inverted flight. Both aircraft interiors remain visible; Cessna window opacity is reduced from inside for visibility. Cockpit instruments are static details from the model, not live gauges; use the on-screen instruments for current flight data. If the Cessna asset fails to load, this camera uses an unobstructed forward view until the full model is available.
+
 The default aircraft is “Plane” by osmosikum, with its original 2K textures and geometry. See `public/models/LICENSE.md` and the in-app credit for CC BY 4.0 attribution. The model is normalized to an 11-meter wingspan. Its presentation animation is excluded. Blue paint becomes white and white paint becomes golden orange-yellow at runtime. A procedural plane remains available during asset loading or on failure.
 
 The aircraft uses an outdoor reflection environment, anisotropic texture filtering, and 1.75–2x rendering resolution. Google tiles target screen-space error 6, keep requests active while moving, and remove the foveated pause delay. The default in-memory tile cache is retained. Detail and streaming speed depend on Google's source coverage, network, and device. Attribution remains visible; the app does not extract tile geometry, store tiles offline, or generate navigation data.

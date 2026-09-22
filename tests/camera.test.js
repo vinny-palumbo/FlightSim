@@ -1,8 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Box3, PerspectiveCamera, Vector3 } from 'three';
+import { Box3, Euler, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { createPlane } from '../src/world.js';
-import { updateFlightCamera } from '../src/camera.js';
+import { cockpitViews, updateFlightCamera } from '../src/camera.js';
+
+test('cockpit stays at the aircraft seat through turns and inverted flight, with nearby geometry visible', () => {
+  const position = new Vector3(150, 1100, -300);
+  for (const cockpit of Object.values(cockpitViews)) for (const roll of [0, .5, 1.1, Math.PI]) {
+    const attitude = new Quaternion().setFromEuler(new Euler(.2, -1.2, -roll, 'YXZ'));
+    const state = { heading: 1.2, pitch: .2, roll, attitude, acrobatic: false };
+    const camera = new PerspectiveCamera(55, 16/9, 1, 130000);
+    updateFlightCamera(camera, position, state, 1, 1, cockpit);
+    const localEye = camera.position.clone().sub(position).applyQuaternion(attitude.clone().invert());
+    assert.ok(localEye.distanceTo(cockpit.position) < 1e-9);
+    const normalView = camera.quaternion.clone();
+    updateFlightCamera(camera, position, { ...state, acrobatic: true }, 1, 1, cockpit);
+    assert.ok(normalView.angleTo(camera.quaternion) < 1e-6, 'mode toggle must not jump the cockpit camera');
+    assert.ok(camera.up.distanceTo(new Vector3(0, 1, 0).applyQuaternion(attitude)) < 1e-9);
+    camera.updateMatrixWorld(true);
+    const nearby = camera.position.clone().addScaledVector(camera.getWorldDirection(new Vector3()), .15).project(camera);
+    assert.ok(nearby.z > -1 && nearby.z < 1, 'nearby cockpit geometry must not be clipped');
+    updateFlightCamera(camera, position, state, 0);
+    assert.equal(camera.near, 1, 'external cameras restore their near plane');
+  }
+});
 
 test('ordinary cruise retains the original chase position and viewing angle', () => {
   const bounds = new Box3().setFromObject(createPlane());

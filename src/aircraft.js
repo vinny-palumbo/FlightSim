@@ -1,5 +1,6 @@
 import { Box3, Group, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { cockpitViews } from './camera.js';
 
 export const aircraftUrl = '/models/cessna-172.gltf';
 
@@ -46,6 +47,7 @@ export function prepareAircraft(gltf) {
   model.scale.multiplyScalar(scale);
   model.position.addScaledVector(bounds.getCenter(new Vector3()), -scale);
   plane.userData.prop = prop;
+  plane.userData.cockpit = cockpitViews.cessna;
   // Fly using the simulator's physics; the source clip also animates the
   // entire airplane. Spin only its separate propeller during flight.
   plane.updateMatrixWorld(true);
@@ -60,12 +62,28 @@ export function prepareRafale(gltf){
   const bounds=new Box3().setFromObject(model),scale=15.27/bounds.getSize(new Vector3()).z;
   model.scale.multiplyScalar(scale);model.position.addScaledVector(bounds.getCenter(new Vector3()),-scale);
   const plane=new Group();plane.name='Rafale M — bohmerang';plane.add(model);plane.userData.cameraScale=1.3;
+  plane.userData.cockpit = cockpitViews.rafale;
   plane.updateMatrixWorld(true);return plane;
 }
 
 export async function loadAircraft(aircraft='cessna') {
   const gltf=await new GLTFLoader().loadAsync(aircraft==='rafale'?'/models/rafale-m.glb':aircraftUrl);
   return aircraft==='rafale'?prepareRafale(gltf):prepareAircraft(gltf);
+}
+
+export function updateAircraftView(plane, cockpit) {
+  if (plane.userData.cockpitActive === cockpit) return;
+  plane.userData.cockpitActive = cockpit;
+  plane.traverse(object => {
+    for (const material of object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : []) {
+      if (material.name !== 'windows') continue;
+      // The Cessna's exterior window texture is too opaque at eye distance.
+      material.userData.exteriorGlass ??= { opacity: material.opacity, depthWrite: material.depthWrite };
+      const original = material.userData.exteriorGlass;
+      material.opacity = cockpit ? original.opacity * .12 : original.opacity;
+      material.depthWrite = cockpit ? false : original.depthWrite;
+    }
+  });
 }
 
 export function disposeAircraft(root) {

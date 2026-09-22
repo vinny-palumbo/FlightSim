@@ -1,6 +1,6 @@
 import { registerFlightTools } from './flight-tools';
 import { updateFlightCamera } from './camera';
-import { loadAircraft, disposeAircraft } from './aircraft';
+import { loadAircraft, disposeAircraft, updateAircraftView } from './aircraft';
 import { createAircraftEnvironment, improveAircraftMaterials } from './aircraft-lighting';
 import * as T from 'three';
 import { createPlane } from './world';
@@ -71,7 +71,8 @@ export class FlightEngine{
   if(this.running&&this.google){try{this.flight.advance(this.input(),dt);if(s.crashed)this.running=false;}catch{this.running=false;this.keys.clear();this.onError('The physics engine stopped the flight. Reset to restart.');}}
   this.plane.position.set(s.x,s.sceneY??s.y,s.z);this.plane.quaternion.copy(s.attitude);if(this.plane.userData.prop)this.plane.userData.prop.rotation.z+=this.running?dt*s.rpm*Math.PI/30:0;
 
-  updateFlightCamera(this.camera,this.plane.position,s,this.cameraMode,this.plane.userData.cameraScale??1);this.plane.visible=!!this.google&&this.cameraMode!==1;
+  updateFlightCamera(this.camera,this.plane.position,s,this.cameraMode,this.plane.userData.cameraScale??1,this.plane.userData.cockpit);this.plane.visible=!!this.google&&(this.cameraMode!==1||!!this.plane.userData.cockpit);
+  updateAircraftView(this.plane,this.cameraMode===1);
   if(this.google)this.syncGoogle();this.renderer.render(this.scene,this.camera);
   if(now-(this.lastEmit||0)>90){this.emit();this.lastEmit=now;}
  }

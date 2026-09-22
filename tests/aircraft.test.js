@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Box3, PerspectiveCamera, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { prepareAircraft } from '../src/aircraft.js';
+import { prepareAircraft, updateAircraftView } from '../src/aircraft.js';
 import { updateFlightCamera } from '../src/camera.js';
 
 // Parse the actual shipped geometry and hierarchy. Image decoding/rendering is
@@ -14,6 +14,22 @@ loader.register(() => ({ name: 'GeometryOnly', loadTexture: () => Promise.resolv
 const gltf = await loader.parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
 const plane = prepareAircraft(gltf);
 const prop = plane.userData.prop;
+
+test('Cessna cockpit glass clears the view and restores its exterior appearance', () => {
+  let glass;
+  plane.traverse(object => { if (object.material?.name === 'windows') glass = object.material; });
+  assert.ok(glass);
+  const original = { opacity: glass.opacity, depthWrite: glass.depthWrite };
+  for (let cycle = 0; cycle < 2; cycle++) {
+    updateAircraftView(plane, true);
+    updateAircraftView(plane, true);
+    assert.equal(glass.opacity, original.opacity * .12);
+    assert.equal(glass.depthWrite, false);
+    updateAircraftView(plane, false);
+    assert.equal(glass.opacity, original.opacity);
+    assert.equal(glass.depthWrite, original.depthWrite);
+  }
+});
 
 test('Cessna is centered, correctly scaled, and faces the flight direction', () => {
   const bounds = new Box3().setFromObject(plane);
